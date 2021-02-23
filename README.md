@@ -12,6 +12,6 @@ For a detailed description of the python implementation for Face Detection:
 
 Additional required packages:
 
-   '''
+   ```
    imutils (0.5.3)
-   '''
+   ```
