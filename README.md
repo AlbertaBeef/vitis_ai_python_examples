@@ -1,10 +1,17 @@
-# face_py_vart
-Python based, face detection and tracking example application using VART API.
+# Vitis-AI : python examples
 
-Hackster.IO project description:
-	• Face Detection and Tracking in python for Ultra96-V2
-		○ {TBD}
+These python examples are meant to be used with the Vitis-AI 1.3 designs.
+    
+   [Hackster - Vitis-AI 1.3 Flow for Avnet Platforms](http://avnet.me/vitis-ai-1.3-project)
+
+
+For a detailed description of the python implementation for Face Detection:
+
+   [Hackster - Face Detection and Tracking in python on Ultra96-V2](https://www.hackster.io/AlbertaBeef/face-detection-and-tracking-in-python-on-ultra96-v2-02d104)
+
 
 Additional required packages:
-	• imutils-0.5.3.tar.gz
-		○ https://pypi.org/project/imutils/#files
+
+   '''
+   imutils (0.5.3)
+   '''
