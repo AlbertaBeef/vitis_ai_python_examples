@@ -15,7 +15,7 @@ limitations under the License.
 '''
 
 # USAGE
-# python avnet_face_landmark.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35]
+# python avnet_face_detection.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35]
 
 from ctypes import *
 from typing import List
@@ -33,8 +33,9 @@ import argparse
 
 from imutils.video import FPS
 
+sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath('./'))
 from vitis_ai_vart.facedetect import FaceDetect
-from vitis_ai_vart.facelandmark import FaceLandmark
 from vitis_ai_vart.utils import get_child_subgraph_dpu
 
 
@@ -75,15 +76,6 @@ densebox_dpu = vart.Runner.create_runner(densebox_subgraphs[0],"run")
 dpu_face_detector = FaceDetect(densebox_dpu,detThreshold,nmsThreshold)
 dpu_face_detector.start()
 
-# Initialize Vitis-AI/DPU based face landmark
-landmark_xmodel = "/usr/share/vitis_ai_library/models/face_landmark/face_landmark.xmodel"
-landmark_graph = xir.Graph.deserialize(landmark_xmodel)
-landmark_subgraphs = get_child_subgraph_dpu(landmark_graph)
-assert len(landmark_subgraphs) == 1 # only one DPU kernel
-landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
-dpu_face_landmark = FaceLandmark(landmark_dpu)
-dpu_face_landmark.start()
-
 # Initialize the camera input
 print("[INFO] starting camera input ...")
 cam = cv2.VideoCapture(inputId)
@@ -103,7 +95,6 @@ while True:
 
 	# Vitis-AI/DPU based face detector
 	faces = dpu_face_detector.process(frame)
-	#print(faces)
 
 	# loop over the faces
 	for i,(left,top,right,bottom) in enumerate(faces): 
@@ -112,25 +103,9 @@ while True:
 		# visualize it
 		cv2.rectangle( frame, (left,top), (right,bottom), (0,255,0), 2)
 
-		# extract the face ROI
-		startX = int(left)
-		startY = int(top)
-		endX   = int(right)
-		endY   = int(bottom)
-		#print( startX, endX, startY, endY )
-		face = frame[startY:endY, startX:endX]
-
-		# extract face landmarks
-		landmarks = dpu_face_landmark.process(face)
-
-		# draw landmarks
-		for i in range(5):
-			x = int(landmarks[i,0] * (endX-startX))
-			y = int(landmarks[i,1] * (endY-startY))
-			cv2.circle( face, (x,y), 3, (255,255,255), 2)
 
 	# Display the processed image
-	cv2.imshow("Face Detection with Landmarks", frame)
+	cv2.imshow("Face Detection", frame)
 	key = cv2.waitKey(1) & 0xFF
 
 	# Update the FPS counter
@@ -148,8 +123,6 @@ print("[INFO] elapsed FPS: {:.2f}".format(fps.fps()))
 # Stop the face detector
 dpu_face_detector.stop()
 del densebox_dpu
-dpu_face_landmark.stop()
-del landmark_dpu
 
 # Cleanup
 cv2.destroyAllWindows()

@@ -1,5 +1,5 @@
 '''
-Copyright 2020 Avnet Inc.
+Copyright 2021 Avnet Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 '''
 
 # USAGE
-# python avnet_face_recognition.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35] --encodings encodings.pkl
+# python face_recognition_enrollment.py [--detthreshold 0.55] [--nmsthreshold 0.35] --dataset dataset --encodings encodings.pkl --display 1
 
 from ctypes import *
 from typing import List
@@ -31,10 +31,11 @@ import time
 import sys
 import argparse
 
-from imutils.video import VideoStream
-from imutils.video import FPS
+from imutils import paths
 import pickle
 
+sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath('./'))
 from vitis_ai_vart.facedetect import FaceDetect
 from vitis_ai_vart.facefeature import FaceFeature
 from vitis_ai_vart.utils import get_child_subgraph_dpu
@@ -42,25 +43,17 @@ from vitis_ai_vart.utils import get_child_subgraph_dpu
 
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
-ap.add_argument("-i", "--input", required=False,
-	help = "input camera identifier (default = 0)")
 ap.add_argument("-d", "--detthreshold", required=False,
 	help = "face detector softmax threshold (default = 0.55)")
 ap.add_argument("-n", "--nmsthreshold", required=False,
 	help = "face detector NMS threshold (default = 0.35)")
+ap.add_argument("-i", "--dataset", required=True,
+	help="path to input directory of faces + images")
 ap.add_argument("-e", "--encodings", required=True,
 	help="path to serialized db of facial encodings")
-ap.add_argument("-o", "--output", type=str,
-	help="path to output video")
-ap.add_argument("-y", "--display", type=int, default=1,
+ap.add_argument("-y", "--display", type=int, default=0,
 	help="whether or not to display output frame to screen")
 args = vars(ap.parse_args())
-
-if not args.get("input",False):
-  inputId = 0
-else:
-  inputId = int(args["input"])
-print('[INFO] input camera identifier = ',inputId)
 
 if not args.get("detthreshold",False):
   detThreshold = 0.55
@@ -94,127 +87,87 @@ facerec_dpu = vart.Runner.create_runner(facerec_subgraphs[0],"run")
 dpu_face_features = FaceFeature(facerec_dpu)
 dpu_face_features.start()
 
-# load the known faces and embeddings
-print("[INFO] loading encodings...")
-data = pickle.loads(open(args["encodings"], "rb").read())
-faceDescriptorsList = data["encodings"]
-faceDescriptorsNdarray = np.asarray(faceDescriptorsList, dtype=np.float64)
-faceDescriptorsNdarray = np.squeeze(faceDescriptorsNdarray,axis=(1,))
-faceDescriptorsEnrolled = faceDescriptorsNdarray
+# grab the paths to the input images in our dataset
+print("[INFO] quantifying faces...")
+imagePaths = list(paths.list_images(args["dataset"]))
 
-# Initialize the camera input
-print("[INFO] starting camera input ...")
-cam = cv2.VideoCapture(inputId)
-cam.set(cv2.CAP_PROP_FRAME_WIDTH,640)
-cam.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
-if not (cam.isOpened()):
-    print("[ERROR] Failed to open camera ", inputId )
-    exit()
+# initialize the list of known encodings and known names
+knownEncodings = []
+knownNames = []
 
-# start the FPS counter
-fps = FPS().start()
+# loop over the image paths
+for (i, imagePath) in enumerate(imagePaths):
+	# extract the person name from the image path
+	print("[INFO] processing image {}/{}".format(i + 1,
+		len(imagePaths)))
+	name = imagePath.split(os.path.sep)[-2]
+	print("   {} : {}".format(name,imagePath))
 
-# writer
-writer = None
+	# load the input image and convert it from RGB (OpenCV ordering)
+	# to dlib ordering (RGB)
+	image = cv2.imread(imagePath)
 
-# loop over frames from the video file stream
-while True:
-        # Capture image from camera
-	ret,frame = cam.read()
-	
-	faces = dpu_face_detector.process(frame)
-	names = []
+	# resize images to 640x480 range
+	height, width = image.shape[:2]
+	#print( np.float32(height)/480.0, np.float32(width)/640.0 )
+	IMAGE_RESIZE = max( np.float32(height)/480.0, np.float32(width)/640.0 )
+	image = cv2.resize(image,None,
+                       fx=1.0/IMAGE_RESIZE,
+                       fy=1.0/IMAGE_RESIZE,
+                       interpolation = cv2.INTER_LINEAR)
+    
+        # Detect faces
+	faces = dpu_face_detector.process(image)
+	if len(faces) != 1:
+	    print("   Skipping invalid image : Found ",len(faces)," faces")       
+	    continue
 
 	# loop over the faces
 	for i,(left,top,right,bottom) in enumerate(faces): 
 
 		# draw a bounding box surrounding the object so we can
 		# visualize it
-		#cv2.rectangle( frame, (left,top), (right,bottom), (0,255,0), 2)
+		cv2.rectangle( image, (left,top), (right,bottom), (0,255,0), 2)
 		
 		# extract the face ROI
 		startX = int(left)
 		startY = int(top)
 		endX   = int(right)
 		endY   = int(bottom)
-		face = frame[startY:endY, startX:endX]
+		face = image[startY:endY, startX:endX]
 
 		# extract face features
 		features = dpu_face_features.process(face)
 
-		name = "Unknown"
-
-		faceDescriptorNdarray = features
-
-		# Calculate Euclidean distances between face descriptor calculated on face dectected
-		# in current frame with all the face descriptors we calculated while enrolling faces
-		distances = np.linalg.norm(faceDescriptorsEnrolled - faceDescriptorNdarray, axis=1)
-		#print(distances)
-
-		# Calculate minimum distance and index of this face
-		argmin = np.argmin(distances)  # index
-		minDistance = distances[argmin]  # minimum distance
-
-		name = data["names"][argmin]
-		print(name)
-
-		# update the list of names
-		names.append(name)
+		# add each features + name to our set of known names and encodings
+		knownEncodings.append(features)
+		knownNames.append(name)
 
 
-	# loop over the faces
-	for ((left,top,right,bottom),name) in zip(faces,names): 
-
-		top = int(top)
-		right = int(right)
-		bottom = int(bottom)
-		left = int(left)
-
-		# draw the predicted face name on the image
-		cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-		y = top - 15 if top - 15 > 15 else top + 15
-		cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
-
-
-	# if the video writer is None *AND* we are supposed to write
-	# the output video to disk initialize the writer
-	if writer is None and args["output"] is not None:
-		fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-		writer = cv2.VideoWriter(args["output"], fourcc, 20,
-			(frame.shape[1], frame.shape[0]), True)
-
-	# if the writer is not None, write the frame with recognized
-	# faces to disk
-	if writer is not None:
-		writer.write(frame)
-
+	# Display the processed image
 	# check to see if we are supposed to display the output frame to
 	# the screen
 	if args["display"] > 0:
-		cv2.imshow("Frame", frame)
+		cv2.imshow("Face Encoding", image)
 		key = cv2.waitKey(1) & 0xFF
+		#key = cv2.waitKey(0) & 0xFF
 
 		# if the `q` key was pressed, break from the loop
 		if key == ord("q"):
 			break
 
-	# Update the FPS counter
-	fps.update()
-
-# Stop the timer and display FPS information
-fps.stop()
-print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-print("[INFO] elapsed FPS: {:.2f}".format(fps.fps()))
+# Dump the facial encodings + names to disk
+print("[INFO] serializing encodings...")
+data = {"encodings": knownEncodings, "names": knownNames}
+f = open(args["encodings"], "wb")
+f.write(pickle.dumps(data))
+f.close()
 
 # Stop the DPU models
 dpu_face_detector.stop()
 del densebox_dpu
 dpu_face_features.stop()
 del facerec_dpu
-
-# check to see if the video writer point needs to be released
-if writer is not None:
-	writer.release()
 
 # Cleanup
 cv2.destroyAllWindows()

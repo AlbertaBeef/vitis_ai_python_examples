@@ -1,5 +1,5 @@
 '''
-Copyright 2020 Avnet Inc.
+Copyright 2021 Avnet Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 '''
 
 # USAGE
-# python avnet_passthrough.py [--input 0]  [--threads 4]
+# python face_passthrough.py [--input 0]  [--threads 4]
 
 import numpy as np
 import argparse

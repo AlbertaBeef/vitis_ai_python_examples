@@ -1,5 +1,5 @@
 '''
-Copyright 2020 Avnet Inc.
+Copyright 2021 Avnet Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@ limitations under the License.
 '''
 
 # USAGE
-# python avnet_face_detection_mt.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35] [--threads 4]
+# python face_detection_mt.py [--input 0] [--detthreshold 0.55] [--nmsthreshold 0.35] [--threads 4]
 
 from ctypes import *
 from typing import List
@@ -34,6 +34,8 @@ import queue
 
 from imutils.video import FPS
 
+sys.path.append(os.path.abspath('../'))
+sys.path.append(os.path.abspath('./'))
 from vitis_ai_vart.facedetect import FaceDetect
 from vitis_ai_vart.utils import get_child_subgraph_dpu
 
@@ -223,7 +225,7 @@ def main(argv):
         x.join()
 
     # Cleanup VART API
-    del dpu
+    del all_dpu_runners
 
 
 if __name__ == "__main__":
