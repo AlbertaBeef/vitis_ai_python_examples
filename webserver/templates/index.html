@@ -1,0 +1,114 @@
+<html>
+
+<!--- Stylesheet start --->
+<style>
+.button {
+  border: none;
+  color: white;
+  padding: 5px 15px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+.red {background-color: #f44336;}
+.green{background-color: #4CAF50;}
+#canvas-container {
+   width: 100%;
+   text-align:center;
+}
+
+canvas {
+   display: inline;
+}
+
+h1{
+    font-size: 50px;
+    line-height: 1;
+}
+</style>
+
+<!--- Stylesheet end --->
+
+<!--- JQuery library to make http request --->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<!--- Main javascript code --->
+<script type="text/javascript">
+
+    // Set thresholds
+    function set_threshold(type) {
+	var slider = document.getElementById(type+"_slider");
+        var value = slider.value;
+        var text = document.getElementById(type+"_value");
+	text.innerHTML = "0."+value;
+	var url = "/set_threshold/"+type+"/"+value;
+	var data = {type:value};
+        $.ajax({
+            type: "POST",
+            url: url, 
+            dataType : "json",
+            contentType : "application/json; charset=utf-8",
+            data: JSON.stringify(data),
+            success: function(data) {
+                console.log(data)
+                var json = JSON.parse(data)
+                //$( "#face_detect_thresholds" ).html("<strong>Threshold</strong>: "+type+"="+value)
+            },
+            error: function(data) 
+            {
+                console.log("Set Threshold Failed")
+            }
+        }).done(function() {
+            console.log("Set Threshold Done");
+        });
+    }
+
+    // Select algorithm
+    function select_algorithm(algo) {
+	var data = {"algorithm":algo}
+	var url    = "/set_algorithm/" + algo
+        var text = document.getElementById("algorithm_value");
+	text.innerHTML = algo;
+        $.ajax({
+            type: "POST",
+            url: url, 
+            dataType : "json",
+            contentType : "application/json; charset=utf-8",
+            data: JSON.stringify(data),
+            success: function(data) {
+                console.log(data)
+                var json = JSON.parse(data)
+                //$( "#algorithm_selection" ).html("<strong>Algorithm</strong>: "+algo)
+            },
+            error: function(data) 
+            {
+                console.log("Algorithm Selection Failed")
+            }
+        }).done(function() {
+            console.log("Algorithm Selection Done");
+        });
+    }
+    
+    </script>
+
+    <!-- HTML body -->
+    <body onload="init()">
+        <div id="canvas-container">
+            <h2> Face Applications at the Edge on Ultra96-V2</h2>
+            <div style="text-align: center; padding: 10px;">
+		    <p id="face_detect_thresholds"><strong>Face Detection thresholds</strong> ( det=<strong><span id="det_value">0.55</span></strong> nms=<strong><span id="nms_value">0.35</span></strong> )</p>
+                <input type="range" min"0" max="100" value="55" id="det_slider" onclick="set_threshold('det')" />
+                <input type="range" min"0" max="100" value="35" id="nms_slider" onclick="set_threshold('nms')" />
+		<p id="algorithm selection">Click button to <strong>Select Algorithm</strong> ( algorithm=<strong><span id="algorithm_value">faces</span></strong> )</p>
+                <input type="button" value="None" id="algo_none" size="30" onclick="select_algorithm('none')" class="red button">
+                <input type="button" value="Faces" id="algo_faces" size="30" onclick="select_algorithm('faces')" class="green button">
+                <input type="button" value="Landmarks" id="algo_landmarks" size="30" onclick="select_algorithm('landmarks')" class="green button">
+		<input type="button" value="Head Pose" id="algo_headpose" size="30" onclick="select_algorithm('headpose')" class="green button">
+            </div>
+            <img src="{{ url_for('video_feed') }}">
+            
+        </div>
+    </html>

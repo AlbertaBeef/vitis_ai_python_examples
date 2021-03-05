@@ -186,11 +186,16 @@ class FaceDetect():
     self.output1Size = output1Size
     self.output1Shape = output1Shape
 
+  def config(self, detThreshold, nmsThreshold):
+    self.detThreshold = detThreshold
+    self.nmsThreshold = nmsThreshold
+    #print("[INFO] facedetect config : detThreshold = ",self.detThreshold," nmsThreshold = ",self.nmsThreshold)
+
   def process(self,img):
-    #print("[INFO] facefeature process")
+    #print("[INFO] facedetect process")
 
     dpu = self.dpu
-    #print("[INFO] facefeature runner=",dpu)
+    #print("[INFO] facedetect runner=",dpu)
 
     inputChannels = self.inputChannels
     inputHeight = self.inputHeight
@@ -258,6 +263,8 @@ class FaceDetect():
 
     """ Run softmax """
     softmax = softmax_2( scores )
+
+    #print("[INFO] detThreshold = ",self.detThreshold," nmsThreshold = ",self.nmsThreshold)
 
     """ Only keep faces for which prob is above detection threshold """
     prob = softmax[:,1] 

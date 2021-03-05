@@ -69,9 +69,9 @@ class FaceLandmark():
     inputChannels = inputTensors[0].dims[3]
     #print("[INFO] input tensor : format=NHWC, Height=",inputHeight," Width=",inputWidth,", Channels=", inputChannels)
     
-    print("[INFO] outputTensors[0]=",outputTensors[0])
+    #print("[INFO] outputTensors[0]=",outputTensors[0])
     outputSize = outputTensors[0].dims[1]
-    print("[INFO] output[0] tensor : size=",outputSize)
+    #print("[INFO] output[0] tensor : size=",outputSize)
 
     inputShape = (1,inputHeight,inputWidth,inputChannels)
     #print("[INFO] inputShape=",inputShape)
