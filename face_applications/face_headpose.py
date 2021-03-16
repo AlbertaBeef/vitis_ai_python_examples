@@ -205,7 +205,7 @@ while True:
 		cv2.line(frame, p1, p2, (255,0,0), 2)
 
 	# Display the processed image
-	cv2.imshow("Face Detection with Landmarks", frame)
+	cv2.imshow("Head Pose Estimation", frame)
 	key = cv2.waitKey(1) & 0xFF
 
 	# Update the FPS counter
