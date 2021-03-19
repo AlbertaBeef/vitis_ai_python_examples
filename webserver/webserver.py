@@ -5,18 +5,33 @@ import base64
 import sys
 import json
 import os
-import vart
-import pathlib
-import xir
 
-import dlib
+global vart_present
+global dlib_present
+vart_present = False
+dlib_present = False
 
-sys.path.append(os.path.abspath('../'))
-sys.path.append(os.path.abspath('./'))
-from vitis_ai_vart.facedetect import FaceDetect
-from vitis_ai_vart.facelandmark import FaceLandmark
-from vitis_ai_vart.utils import get_child_subgraph_dpu
+try:
+   import vart
+   import pathlib
+   import xir
+   vart_present = True
+except:
+   print("[INFO] VART not available ! (are you running on a Xilinx platform ?)")
+   
+try:
+   import dlib
+   dlib_present = True
+except:
+   print("[INFO] DLIB not available ! (install with : pip3 install dlib)")
 
+
+if vart_present == True:
+   sys.path.append(os.path.abspath('../'))
+   sys.path.append(os.path.abspath('./'))
+   from vitis_ai_vart.facedetect import FaceDetect
+   from vitis_ai_vart.facelandmark import FaceLandmark
+   from vitis_ai_vart.utils import get_child_subgraph_dpu
 
 # Define App
 app = Flask(__name__,template_folder="templates")
@@ -156,42 +171,52 @@ def set_dlib_option(algo,value):
 
 
 def generate():
+   global vart_present
+   global dlib_present
    global detThreshold
    global nmsThreshold
    global ai_algorithm
    global use_dlib_detection
    global use_dlib_landmarks
 
-   print("[INFO] Vitis-AI/DPU based face detector initialization ...")
-   densebox_xmodel = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.xmodel"
-   densebox_graph = xir.Graph.deserialize(densebox_xmodel)
-   densebox_subgraphs = get_child_subgraph_dpu(densebox_graph)
-   assert len(densebox_subgraphs) == 1 # only one DPU kernel
-   densebox_dpu = vart.Runner.create_runner(densebox_subgraphs[0],"run")
-   dpu_face_detector = FaceDetect(densebox_dpu,detThreshold,nmsThreshold)
-   dpu_face_detector.start()
+   if vart_present == True:
+      print("[INFO] Vitis-AI/DPU based face detector initialization ...")
+      densebox_xmodel = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.xmodel"
+      densebox_graph = xir.Graph.deserialize(densebox_xmodel)
+      densebox_subgraphs = get_child_subgraph_dpu(densebox_graph)
+      assert len(densebox_subgraphs) == 1 # only one DPU kernel
+      densebox_dpu = vart.Runner.create_runner(densebox_subgraphs[0],"run")
+      dpu_face_detector = FaceDetect(densebox_dpu,detThreshold,nmsThreshold)
+      dpu_face_detector.start()
 
-   print("[INFO] Vitis-AI/DPU based face landmark initialization ...")
-   landmark_xmodel = "/usr/share/vitis_ai_library/models/face_landmark/face_landmark.xmodel"
-   landmark_graph = xir.Graph.deserialize(landmark_xmodel)
-   landmark_subgraphs = get_child_subgraph_dpu(landmark_graph)
-   assert len(landmark_subgraphs) == 1 # only one DPU kernel
-   landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
-   dpu_face_landmark = FaceLandmark(landmark_dpu)
-   dpu_face_landmark.start()
+      print("[INFO] Vitis-AI/DPU based face landmark initialization ...")
+      landmark_xmodel = "/usr/share/vitis_ai_library/models/face_landmark/face_landmark.xmodel"
+      landmark_graph = xir.Graph.deserialize(landmark_xmodel)
+      landmark_subgraphs = get_child_subgraph_dpu(landmark_graph)
+      assert len(landmark_subgraphs) == 1 # only one DPU kernel
+      landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
+      dpu_face_landmark = FaceLandmark(landmark_dpu)
+      dpu_face_landmark.start()
 
-   # Initialize DLIB based face detector
-   dlib_face_detector = dlib.get_frontal_face_detector()
+   if dlib_present == True:
+      # Initialize DLIB based face detector
+      dlib_face_detector = dlib.get_frontal_face_detector()
 
-   # Initialize DLIB based face landmark
-   dlib_landmark_model = "../face_applications_dlib/models/shape_predictor_68_face_landmarks.dat"
-   dlib_face_landmark = dlib.shape_predictor(dlib_landmark_model)
+      # Initialize DLIB based face landmark
+      dlib_landmark_model = "../face_applications_dlib/models/shape_predictor_68_face_landmarks.dat"
+      dlib_face_landmark = dlib.shape_predictor(dlib_landmark_model)
 
    # algorithm selection
-   use_dlib_detection = False
-   use_dlib_landmarks = False
-   print("[INFO] face detection = VART")
-   print("[INFO] face landmarks = VART")
+   if vart_present == True:
+      use_dlib_detection = False
+      use_dlib_landmarks = False
+      print("[INFO] face detection = VART")
+      print("[INFO] face landmarks = VART")
+   else:
+      use_dlib_detection = True
+      use_dlib_landmarks = True
+      print("[INFO] face detection = DLIB")
+      print("[INFO] face landmarks = DLIB")
 
 
    print("[INFO] WEBCAM (/dev/video0) openned by generate() function.")
@@ -240,13 +265,13 @@ def generate():
       if ai_algorithm > 0:
          dlib_image = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
     
-         if use_dlib_detection == False:
+         if use_dlib_detection == False and vart_present == True:
             # Vitis-AI/DPU based face detector
             dpu_face_detector.config( detThreshold, nmsThreshold )
             faces = dpu_face_detector.process(frame)
             #print(faces)
 	
-         if use_dlib_detection == True:
+         if use_dlib_detection == True and dlib_present == True:
             # DLIB based face detector
             dlib_faces = dlib_face_detector(dlib_image, 0)
             faces = []
@@ -270,7 +295,7 @@ def generate():
             heightY  = endY-startY
             face = frame[startY:endY, startX:endX]
 
-            if use_dlib_landmarks == False:
+            if use_dlib_landmarks == False and vart_present == True:
 
                # extract face landmarks
                landmarks = dpu_face_landmark.process(face)
@@ -309,7 +334,7 @@ def generate():
                   image_points[1] = (mouth_center_x + nose_offset_x, mouth_center_y + nose_offset_y);
                   #print(image_points)
 
-            if use_dlib_landmarks == True:
+            if use_dlib_landmarks == True and dlib_present == True:
 
                # extract face landmarks with DLIB
                dlib_rect = dlib.rectangle( startX,startY,endX,endY )
