@@ -9,6 +9,7 @@ import vart
 import pathlib
 import xir
 
+import dlib
 
 sys.path.append(os.path.abspath('../'))
 sys.path.append(os.path.abspath('./'))
@@ -42,6 +43,11 @@ nmsThreshold = 0.35
 #ai_algorithm = 0 # none
 ai_algorithm = 1 # face detection
 
+# VART versus DLIB algorithm selection
+global use_dlib_detection
+global use_dlib_landmarks
+use_dlib_detection = False
+use_dlib_landmarks = False
 
 # Handles uploaded image
 @app.route('/upload',methods=["POST"])
@@ -124,12 +130,37 @@ def set_algorithm(algo):
    # Return result as a json object
    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
    
+@app.route('/set_dlib_option/<algo>/<value>',methods=["POST"])
+def set_dlib_option(algo,value):
+   global use_dlib_detection
+   global use_dlib_landmarks
+
+   if algo == "facedetect":
+      if value == "true": 
+         use_dlib_detection = True
+         print("[INFO] face detection = DLIB")
+      if value == "false": 
+         use_dlib_detection = False
+         print("[INFO] face detection = VART")
+
+   if algo == "landmark":
+      if value == "true": 
+         use_dlib_landmarks = True
+         print("[INFO] face landmarks = DLIB")
+      if value == "false": 
+         use_dlib_landmarks = False
+         print("[INFO] face landmarks = VART")
+
+   # Return result as a json object
+   return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 
 def generate():
    global detThreshold
    global nmsThreshold
    global ai_algorithm
+   global use_dlib_detection
+   global use_dlib_landmarks
 
    print("[INFO] Vitis-AI/DPU based face detector initialization ...")
    densebox_xmodel = "/usr/share/vitis_ai_library/models/densebox_640_360/densebox_640_360.xmodel"
@@ -148,6 +179,20 @@ def generate():
    landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
    dpu_face_landmark = FaceLandmark(landmark_dpu)
    dpu_face_landmark.start()
+
+   # Initialize DLIB based face detector
+   dlib_face_detector = dlib.get_frontal_face_detector()
+
+   # Initialize DLIB based face landmark
+   dlib_landmark_model = "../face_applications_dlib/models/shape_predictor_68_face_landmarks.dat"
+   dlib_face_landmark = dlib.shape_predictor(dlib_landmark_model)
+
+   # algorithm selection
+   use_dlib_detection = False
+   use_dlib_landmarks = False
+   print("[INFO] face detection = VART")
+   print("[INFO] face landmarks = VART")
+
 
    print("[INFO] WEBCAM (/dev/video0) openned by generate() function.")
    cap = cv2.VideoCapture(0)
@@ -193,10 +238,22 @@ def generate():
 
       # Processing
       if ai_algorithm > 0:
-         # Vitis-AI/DPU based face detector
-         dpu_face_detector.config( detThreshold, nmsThreshold )
-         faces = dpu_face_detector.process(frame)
-      
+         dlib_image = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    
+         if use_dlib_detection == False:
+            # Vitis-AI/DPU based face detector
+            dpu_face_detector.config( detThreshold, nmsThreshold )
+            faces = dpu_face_detector.process(frame)
+            #print(faces)
+	
+         if use_dlib_detection == True:
+            # DLIB based face detector
+            dlib_faces = dlib_face_detector(dlib_image, 0)
+            faces = []
+            for face in dlib_faces:
+               faces.append( (face.left(),face.top(),face.right(),face.bottom()) )
+               #print(faces)
+
          # loop over the faces
          for i,(left,top,right,bottom) in enumerate(faces): 
      
@@ -209,57 +266,97 @@ def generate():
             endX   = int(right)
             endY   = int(bottom)
             #print( startX, endX, startY, endY )
+            widthX   = endX-startX
+            heightY  = endY-startY
             face = frame[startY:endY, startX:endX]
 
-            # extract face landmarks
-            landmarks = dpu_face_landmark.process(face)
+            if use_dlib_landmarks == False:
 
-            if ai_algorithm == 2:
-               # draw landmarks
+               # extract face landmarks
+               landmarks = dpu_face_landmark.process(face)
+
+               # calculate coordinates for full frame
                for i in range(5):
-                  x = int(landmarks[i,0] * (endX-startX))
-                  y = int(landmarks[i,1] * (endY-startY))
-                  cv2.circle( face, (x,y), 3, (255,255,255), 2)
+                  landmarks[i,0] = startX + landmarks[i,0]*widthX
+                  landmarks[i,1] = startY + landmarks[i,1]*heightY
+
+               if ai_algorithm == 2:
+                  # draw landmarks
+                  for i in range(5):
+                     x = int(landmarks[i,0])
+                     y = int(landmarks[i,1])
+                     cv2.circle( frame, (x,y), 3, (255,255,255), 2)
+
+               if ai_algorithm == 3:
+                  # prepare 2D points
+                  image_points = np.array([
+                     (landmarks[2,0], landmarks[2,1]), # Nose tip
+                     (landmarks[2,0], landmarks[2,1]), # Chin (place-holder for now)
+                     (landmarks[0,0], landmarks[0,1]), # Left eye left corner
+                     (landmarks[1,0], landmarks[1,1]), # Right eye right corne
+                     (landmarks[3,0], landmarks[3,1]), # Left Mouth corner
+                     (landmarks[4,0], landmarks[4,1])  # Right mouth corner
+                  ], dtype="double")
+
+                  # estimate approximate location of chin
+                  # let's assume that the chin location will behave similar as the nose location
+                  eye_center_x = (image_points[2][0] + image_points[3][0])/2;
+                  eye_center_y = (image_points[2][1] + image_points[3][1])/2;
+                  nose_offset_x = (image_points[0][0] - eye_center_x);
+                  nose_offset_y = (image_points[0][1] - eye_center_y);
+                  mouth_center_x = (image_points[4][0] + image_points[5][0])/2;
+                  mouth_center_y = (image_points[4][1] + image_points[5][1])/2;
+                  image_points[1] = (mouth_center_x + nose_offset_x, mouth_center_y + nose_offset_y);
+                  #print(image_points)
+
+            if use_dlib_landmarks == True:
+
+               # extract face landmarks with DLIB
+               dlib_rect = dlib.rectangle( startX,startY,endX,endY )
+               dlib_landmarks = dlib_face_landmark(dlib_image,dlib_rect)
+
+               if ai_algorithm == 2:
+                  # draw landmarks
+                  for i in range(dlib_landmarks.num_parts):
+                     x = int(dlib_landmarks.part(i).x)
+                     y = int(dlib_landmarks.part(i).y)
+                     cv2.circle( frame, (x,y), 3, (255,255,255), 2)
                         
+               if ai_algorithm == 3:
+                  # prepare 2D points
+                  image_points = np.array([
+                     (dlib_landmarks.part(30).x, dlib_landmarks.part(30).y), # Nose tip
+                     (dlib_landmarks.part( 8).x, dlib_landmarks.part( 8).y), # Chin
+                     (dlib_landmarks.part(36).x, dlib_landmarks.part(36).y), # Left eye left corner
+                     (dlib_landmarks.part(45).x, dlib_landmarks.part(45).y), # Right eye right corne
+                     (dlib_landmarks.part(48).x, dlib_landmarks.part(48).y), # Left Mouth corner
+                     (dlib_landmarks.part(54).x, dlib_landmarks.part(54).y)  # Right mouth corner
+                  ], dtype="double")
+                  #print(image_points)
+
+
+            #end ofif use_dlib_landmarks == True:
+
             if ai_algorithm == 3:
-               widthX   = endX-startX
-               heightY  = endY-startY
-
-               # prepare 2D points
-               image_points = np.array([
-                            (landmarks[2,0]*widthX, landmarks[2,1]*heightY), # Nose tip
-                            (landmarks[2,0]*widthX, landmarks[2,1]*heightY), # Chin (place-holder for now)
-                            (landmarks[0,0]*widthX, landmarks[0,1]*heightY), # Left eye left corner
-                            (landmarks[1,0]*widthX, landmarks[1,1]*heightY), # Right eye right corne
-                            (landmarks[3,0]*widthX, landmarks[3,1]*heightY), # Left Mouth corner
-                            (landmarks[4,0]*widthX, landmarks[4,1]*heightY)  # Right mouth corner
-                        ], dtype="double")
-
-               # estimate approximate location of chin
-               # let's assume that the chin location will behave similar as the nose location
-               eye_center_x = (image_points[2][0] + image_points[3][0])/2;
-               eye_center_y = (image_points[2][1] + image_points[3][1])/2;
-               nose_offset_x = (image_points[0][0] - eye_center_x);
-               nose_offset_y = (image_points[0][1] - eye_center_y);
-               mouth_center_x = (image_points[4][0] + image_points[5][0])/2;
-               mouth_center_y = (image_points[4][1] + image_points[5][1])/2;
-               image_points[1] = (mouth_center_x + nose_offset_x, mouth_center_y + nose_offset_y);
-
                # calculate head pose
                dist_coeffs = np.zeros((4,1)) # Assuming no lens distortion
                (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 
+               #print "[INFO] Rotation Vector:\n {0}".format(rotation_vector)
+               #print "[INFO] Translation Vector:\n {0}".format(translation_vector)
+  
                # Project a 3D point (0, 0, 1000.0) onto the image plane.
                # We use this to draw a line sticking out of the nose
+
                (nose_end_point2D, jacobian) = cv2.projectPoints(np.array([(0.0, 0.0, 1000.0)]), rotation_vector, translation_vector, camera_matrix, dist_coeffs)
 
                for p in image_points:
-                  #cv2.circle(face, (int(p[0]), int(p[1])), 3, (0,0,255), -1)
-                  cv2.circle(face, (int(p[0]), int(p[1])), 3, (255,255,255), 2)
+                  cv2.circle(frame, (int(p[0]), int(p[1])), 3, (255,255,255), 2)
 
-               # draw head pose vector (draw in original image for full vector length)
-               p1 = ( startX+int(image_points[0][0]), startY+int(image_points[0][1]))
-               p2 = ( startX+int(nose_end_point2D[0][0][0]), startY+int(nose_end_point2D[0][0][1]))
+
+               # draw head pose vector
+               p1 = ( int(image_points[0][0]), int(image_points[0][1]))
+               p2 = ( int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
                cv2.line(frame, p1, p2, (255,0,0), 2)
 
       # Encode video frame to JPG

@@ -68,10 +68,10 @@ h1{
 
     // Select algorithm
     function select_algorithm(algo) {
-	var data = {"algorithm":algo}
 	var url    = "/set_algorithm/" + algo
         var text = document.getElementById("algorithm_value");
 	text.innerHTML = algo;
+	var data = {"algorithm":algo}
         $.ajax({
             type: "POST",
             url: url, 
@@ -92,6 +92,32 @@ h1{
         });
     }
     
+    // Select dlib option
+    function select_dlib_option(algo) {
+	var checkbox = document.getElementById("use_dlib_"+algo);
+        var value    = checkbox.checked;
+	var url  = "/set_dlib_option/" + algo + "/" + value
+	var data = {algo:value}
+        $.ajax({
+            type: "POST",
+            url: url, 
+            dataType : "json",
+            contentType : "application/json; charset=utf-8",
+            data: JSON.stringify(data),
+            success: function(data) {
+                console.log(data)
+                var json = JSON.parse(data)
+                //$( "#dlib_option" ).html("<strong>Algorithm</strong>: "+algo)
+            },
+            error: function(data) 
+            {
+                console.log("DLIB Option Selection Failed")
+            }
+        }).done(function() {
+            console.log("DLIB Optionm Selection Done");
+        });
+    }
+    
     </script>
 
     <!-- HTML body -->
@@ -105,7 +131,11 @@ h1{
 		<p id="algorithm selection">Click button to <strong>Select Algorithm</strong> ( algorithm=<strong><span id="algorithm_value">faces</span></strong> )</p>
                 <input type="button" value="None" id="algo_none" size="30" onclick="select_algorithm('none')" class="red button">
                 <input type="button" value="Faces" id="algo_faces" size="30" onclick="select_algorithm('faces')" class="green button">
+		<input type="checkbox" value="dlib" id="use_dlib_facedetect" onclick="select_dlib_option('facedetect')" >
+		<label>DLIB</label>
                 <input type="button" value="Landmarks" id="algo_landmarks" size="30" onclick="select_algorithm('landmarks')" class="green button">
+		<input type="checkbox" value="dlib" id="use_dlib_landmark" onclick="select_dlib_option('landmark')" >
+		<label>DLIB</label>
 		<input type="button" value="Head Pose" id="algo_headpose" size="30" onclick="select_algorithm('headpose')" class="green button">
             </div>
             <img src="{{ url_for('video_feed') }}">
