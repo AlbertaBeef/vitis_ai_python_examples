@@ -15,14 +15,6 @@
 }
 .red {background-color: #f44336;}
 .green{background-color: #4CAF50;}
-#canvas-container {
-   width: 100%;
-   text-align:center;
-}
-
-canvas {
-   display: inline;
-}
 
 h1{
     font-size: 50px;
@@ -92,6 +84,32 @@ h1{
         });
     }
     
+    // Select fps option
+    function select_fps_option(na) {
+	var checkbox = document.getElementById("enable_fps_display");
+        var value    = checkbox.checked;
+	var url  = "/set_fps_option/" + value
+	var data = {'fps':value}
+        $.ajax({
+            type: "POST",
+            url: url, 
+            dataType : "json",
+            contentType : "application/json; charset=utf-8",
+            data: JSON.stringify(data),
+            success: function(data) {
+                console.log(data)
+                var json = JSON.parse(data)
+                //$( "#dlib_option" ).html("<strong>Algorithm</strong>: "+algo)
+            },
+            error: function(data) 
+            {
+                console.log("FPS Option Selection Failed")
+            }
+        }).done(function() {
+            console.log("FPS Option Selection Done");
+        });
+    }
+    
     // Select dlib option
     function select_dlib_option(algo) {
 	var checkbox = document.getElementById("use_dlib_"+algo);
@@ -114,7 +132,7 @@ h1{
                 console.log("DLIB Option Selection Failed")
             }
         }).done(function() {
-            console.log("DLIB Optionm Selection Done");
+            console.log("DLIB Option Selection Done");
         });
     }
     
@@ -122,13 +140,15 @@ h1{
 
     <!-- HTML body -->
     <body onload="init()">
-        <div id="canvas-container">
+        <div style="text-align: center; width: 100%;">
             <h2> Face Applications at the Edge on Ultra96-V2</h2>
             <div style="text-align: center; padding: 10px;">
 		    <p id="face_detect_thresholds"><strong>Face Detection thresholds</strong> ( det=<strong><span id="det_value">0.55</span></strong> nms=<strong><span id="nms_value">0.35</span></strong> )</p>
                 <input type="range" min"0" max="100" value="55" id="det_slider" onclick="set_threshold('det')" />
                 <input type="range" min"0" max="100" value="35" id="nms_slider" onclick="set_threshold('nms')" />
 		<p id="algorithm selection">Click button to <strong>Select Algorithm</strong> ( algorithm=<strong><span id="algorithm_value">faces</span></strong> )</p>
+		<input type="checkbox" value="fps" id="enable_fps_display" onclick="select_fps_option('fps')" >
+		<label>FPS</label>
                 <input type="button" value="None" id="algo_none" size="30" onclick="select_algorithm('none')" class="red button">
                 <input type="button" value="Faces" id="algo_faces" size="30" onclick="select_algorithm('faces')" class="green button">
 		<input type="checkbox" value="dlib" id="use_dlib_facedetect" onclick="select_dlib_option('facedetect')" >
@@ -139,6 +159,7 @@ h1{
 		<input type="button" value="Head Pose" id="algo_headpose" size="30" onclick="select_algorithm('headpose')" class="green button">
             </div>
             <img src="{{ url_for('video_feed') }}">
+            <img src="{{ url_for('power_feed') }}">
             
         </div>
     </html>
