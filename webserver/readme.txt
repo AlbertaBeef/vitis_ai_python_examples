@@ -1,5 +1,3 @@
-i
-
 
 To start the webserver, type the folliowing command:
 

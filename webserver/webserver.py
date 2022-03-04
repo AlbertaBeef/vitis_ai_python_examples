@@ -5,6 +5,8 @@ import base64
 import sys
 import json
 import os
+import glob
+import subprocess
 
 global vart_present
 global dlib_present
@@ -161,6 +163,20 @@ def set_fps_option(value):
    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
 
 
+def get_video_dev_by_name(src):
+   devices = glob.glob("/dev/video*")
+   for dev in devices:
+      src_found = 0
+      capture_found = 0
+      proc = subprocess.run(['v4l2-ctl','-d',dev,'-D'], capture_output=True, encoding='utf8')
+      for line in proc.stdout.splitlines():
+         if src in line:
+            src_found = 1
+         if "Video Capture" in line:
+            capture_found = capture_found + 1
+      if ( src_found == 1 and capture_found == 2 ):
+         return dev
+
 def generate():
    global vart_present
    global dlib_present
@@ -211,8 +227,16 @@ def generate():
       print("[INFO] face landmarks = DLIB")
 
 
-   print("[INFO] WEBCAM (/dev/video0) openned by generate() function.")
-   cap = cv2.VideoCapture(0)
+   # Find usb cameras
+   usbcam_dev = get_video_dev_by_name("uvcvideo")
+   usbcam_gst = "v4l2src device=", usbcam_dev, " ! video/x-raw, width=640, height=480 ! videoconvert ! video/x-raw, format=RGB ! appsink "
+   print("[INFO] WEBCAM usbcam_dev = ",usbcam_dev)
+   print("[INFO] WEBCAM usbcam_gst = ",usbcam_gst)
+
+   #print("[INFO] WEBCAM (/dev/video0) openned by generate() function.")
+   #cap = cv2.VideoCapture(0)
+   #cap = cv2.VideoCapture("/dev/video0")
+   cap = cv2.VideoCapture(usbcam_dev)
    cap.set(cv2.CAP_PROP_FRAME_WIDTH,640)
    cap.set(cv2.CAP_PROP_FRAME_HEIGHT,480)
 
