@@ -1,8 +1,8 @@
 # Vitis-AI : python examples
 
-These python examples are meant to be used with the Vitis-AI 1.3 designs.
+These python examples are meant to be used with the Vitis-AI 2.0 designs.
     
-   [Hackster - Vitis-AI 1.3 Flow for Avnet Platforms](http://avnet.me/vitis-ai-1.3-project)
+   [Hackster - Vitis-AI 2.0 Flow for Avnet Platforms](http://avnet.me/vitis-ai-2.0-project)
 
 
 For a detailed description of the python implementation for Face Detection:
