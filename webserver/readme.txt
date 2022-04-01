@@ -1,5 +1,5 @@
 
-To start the webserver, type the folliowing command:
+To start the webserver, type the following command:
 
    $ cd vitis_ai_python_examples/webserver
    $ python3 webserver.py

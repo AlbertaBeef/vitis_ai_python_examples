@@ -22,7 +22,7 @@ try:
    import xir
    vart_present = True
 except:
-   print("[ERROR] VART not available ! (are you running on a Vitis-AI 1.3 platform ?)")
+   print("[ERROR] VART not available ! (are you running on a Vitis-AI 2.0 platform ?)")
    
 try:
    import dlib
@@ -38,7 +38,7 @@ try:
    from matplotlib.figure import Figure
    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
    import io
-   plot_present = True
+   #plot_present = True
 except:
    print("[ERROR] sensor/matplotlib/io not available ! (install with : pip3 install pysensors matplotlib io)")
 
