@@ -6,6 +6,7 @@
 #       Face Detection (Vitis-AI, DLIB)
 #       Face Landmarks (Vitis-AI, DLIB)
 #       Head Pose Estimation
+#       Tracking
 #
 # References:
 #    Face Detection and Tracking with python
@@ -77,7 +78,7 @@ if vart_present == True:
    from vitis_ai_vart.facelandmark import FaceLandmark
    from vitis_ai_vart.utils import get_child_subgraph_dpu
 
-
+from pyimagesearch.centroidtracker import CentroidTracker
 
 # Define App
 app = Flask(__name__,template_folder="templates")
@@ -147,6 +148,10 @@ def set_algorithm(algo):
    if algo == "headpose": 
       ai_algorithm = 3
       print("[INFO] algorithm = head pose estimation")
+
+   if algo == "tracking": 
+      ai_algorithm = 4
+      print("[INFO] algorithm = tracking")
 
    # Return result as a json object
    return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
@@ -232,6 +237,7 @@ def generate():
       landmark_dpu = vart.Runner.create_runner(landmark_subgraphs[0],"run")
       dpu_face_landmark = FaceLandmark(landmark_dpu)
       dpu_face_landmark.start()
+      
 
    if dlib_present == True:
       # Initialize DLIB based face detector
@@ -240,6 +246,9 @@ def generate():
       # Initialize DLIB based face landmark
       dlib_landmark_model = "../face_applications_dlib/models/shape_predictor_68_face_landmarks.dat"
       dlib_face_landmark = dlib.shape_predictor(dlib_landmark_model)
+
+   # Initialize our centroid tracker and frame dimensions
+   ct = CentroidTracker()
 
    # algorithm selection
    if vart_present == True:
@@ -444,6 +453,18 @@ def generate():
                p2 = ( int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
                cv2.line(frame, p1, p2, (255,0,0), 2)
 
+            if ai_algorithm == 4:
+               # update our centroid tracker using the computed set of bounding box rectangles
+               objects = ct.update(faces)
+
+               # loop over the tracked objects
+               for (objectID, centroid) in objects.items():
+                  # draw both the ID of the object and the centroid of the object on the output frame
+                  text = "ID {}".format(objectID)
+                  bbox = ct.bboxes[objectID]
+                  cv2.putText(frame, text, (bbox[0], bbox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                  cv2.rectangle( frame, (bbox[0],bbox[1]), (bbox[2],bbox[3]), (0,255,0), 2)
+          
       # real-time FPS display
       if display_fps == True and rt_fps_valid == True:
          cv2.putText(frame, rt_fps_message, (rt_fps_x,rt_fps_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)

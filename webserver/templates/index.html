@@ -141,7 +141,7 @@ h1{
     <!-- HTML body -->
     <body onload="init()">
         <div style="text-align: center; width: 100%;">
-            <h2> Face Applications at the Edge on Ultra96-V2</h2>
+            <h2> Face Applications at the Edge</h2>
             <div style="text-align: center; padding: 10px;">
 		    <p id="face_detect_thresholds"><strong>Face Detection thresholds</strong> ( det=<strong><span id="det_value">0.55</span></strong> nms=<strong><span id="nms_value">0.35</span></strong> )</p>
                 <input type="range" min"0" max="100" value="55" id="det_slider" onclick="set_threshold('det')" />
@@ -157,6 +157,7 @@ h1{
 		<input type="checkbox" value="dlib" id="use_dlib_landmark" onclick="select_dlib_option('landmark')" >
 		<label>DLIB</label>
 		<input type="button" value="Head Pose" id="algo_headpose" size="30" onclick="select_algorithm('headpose')" class="green button">
+		<input type="button" value="Tracking" id="algo_tracking" size="30" onclick="select_algorithm('tracking')" class="green button">
             </div>
             <img src="{{ url_for('video_feed') }}">
             <img src="{{ url_for('power_feed') }}">
