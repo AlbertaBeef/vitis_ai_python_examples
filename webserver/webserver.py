@@ -1,3 +1,30 @@
+#
+# Face Applications at the Edge
+#
+# Features:
+#    Algorithms
+#       Face Detection (Vitis-AI, DLIB)
+#       Face Landmarks (Vitis-AI, DLIB)
+#       Head Pose Estimation
+#
+# References:
+#    Face Detection and Tracking with python
+#       http://avnet.me/ultra96-python-face-tracking
+#    Head Pose Estimation
+#       https://avnet.me/vitis-ai-1.3-headpose
+#    Face Applications 
+#       
+#    Face Applications Webinar
+#
+# Dependencies:
+#    Flask==1.1.2
+#      click==7.1.2
+#      Jinja2==2.11.2
+#      Werkzeug==1.0.1
+#      MarkupSafe==1.1.1
+#      itsdangerous==1.1.0
+
+
 from flask import Flask,render_template,request,make_response,Response
 import numpy as np
 import cv2
