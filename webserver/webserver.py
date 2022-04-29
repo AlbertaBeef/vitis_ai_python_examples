@@ -310,15 +310,19 @@ def generate():
 
          # loop over the faces
          for i,(left,top,right,bottom) in enumerate(faces): 
+            left   = int(left)
+            top    = int(top)
+            right  = int(right)
+            bottom = int(bottom)
      
             # draw a bounding box surrounding the object so we can visualize it
             cv2.rectangle( frame, (left,top), (right,bottom), (0,255,0), 2)
 
             # extract the face ROI
-            startX = int(left)
-            startY = int(top)
-            endX   = int(right)
-            endY   = int(bottom)
+            startX = left
+            startY = top
+            endX   = right
+            endY   = bottom
             #print( startX, endX, startY, endY )
             widthX   = endX-startX
             heightY  = endY-startY
